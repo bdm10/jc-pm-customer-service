@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
-import { freshStart, go, nextAction } from './helpers';
+import { appUrl, freshStart, go, nextAction } from './helpers';
 
 test.describe('Funciones para la reunión', () => {
   test('la bandeja responde a las cinco preguntas y filtra', async ({ page }) => {
@@ -111,9 +111,9 @@ test.describe('Funciones para la reunión', () => {
   });
 
   test('reiniciar mientras el ERP simulado responde descarta el resultado', async ({ page }) => {
-    await page.goto('/#/bandeja');
+    await page.goto(appUrl('/bandeja', false));
     await page.evaluate(() => localStorage.clear());
-    await page.goto('/#/pedido/REQ-1042'); // latencia normal (~1 s)
+    await page.goto(appUrl('/pedido/REQ-1042', false)); // latencia normal (~1 s)
     await page.reload();
     for (const k of ['deliveryAddress', 'deliveryDate']) await page.getByTestId(`confirm-${k}`).click();
     await page.getByTestId('confirm-line-L3').click();

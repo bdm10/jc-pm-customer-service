@@ -1,5 +1,6 @@
 // Convierte la salida de `vite build` en un único HTML autocontenido que se puede abrir
-// con doble clic (file://), sin servidor ni conexión. Uso: node scripts/inline-build.mjs dist-single
+// con doble clic (file://), sin servidor ni conexión.
+// Uso: node scripts/inline-build.mjs <carpeta> [nombre.html]
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -22,7 +23,7 @@ if (/src="\.?\/?assets\//.test(html) || /href="\.?\/?assets\//.test(html)) {
   process.exit(1);
 }
 
-const out = join(dir, 'prototipo-atencion-cliente.html');
+const out = join(dir, process.argv[3] ?? 'JC-PM-Customer-Service-Demo.html');
 writeFileSync(out, html);
 rmSync(join(dir, 'assets'), { recursive: true, force: true });
 rmSync(htmlPath);

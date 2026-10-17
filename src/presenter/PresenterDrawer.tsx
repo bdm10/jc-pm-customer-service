@@ -1,20 +1,20 @@
 import { useState } from 'react';
-import { CheckCircle2, Circle, Download, MessageSquarePlus, Play, RotateCcw, Trash2, X } from 'lucide-react';
+import { CheckCircle2, Circle, Copy, Download, MessageSquarePlus, Play, RotateCcw, Trash2, X } from 'lucide-react';
 import { GLOBAL_ASSUMPTIONS, GLOBAL_QUESTIONS, SCENARIOS, scenarioById } from '../data/scenarios';
 import { feedbackToCsv, feedbackToJson, isFeedbackEmpty, type FeedbackPriority } from '../domain/feedback';
 import type { ScenarioId } from '../domain/types';
 import { download, useFeedback } from '../state/feedback';
 import { navigate } from '../state/router';
 import { useStore } from '../state/store';
-import { ConfirmDialog, useToast } from '../components/ui';
+import { AsyncButton, ConfirmDialog, useToast } from '../components/ui';
 import { usePresenter } from './PresenterContext';
 
 export const scenarioTitle = (id: ScenarioId | 'general') => (id === 'general' ? 'General' : `${scenarioById(id)?.number}. ${scenarioById(id)?.title}`);
 
 export function exportFeedback(kind: 'csv' | 'json', entries: ReturnType<typeof useFeedback>['entries']) {
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
-  if (kind === 'csv') download(`comentarios-prototipo-${stamp}.csv`, feedbackToCsv(entries, scenarioTitle), 'text/csv;charset=utf-8');
-  else download(`comentarios-prototipo-${stamp}.json`, feedbackToJson(entries, scenarioTitle), 'application/json');
+  if (kind === 'csv') return download(`comentarios-prototipo-${stamp}.csv`, feedbackToCsv(entries, scenarioTitle), 'text/csv;charset=utf-8');
+  return download(`comentarios-prototipo-${stamp}.json`, feedbackToJson(entries, scenarioTitle), 'application/json');
 }
 
 export function PresenterDrawer() {
@@ -308,11 +308,24 @@ function FeedbackPanel({ scenarioId }: { scenarioId: ScenarioId | 'general' }) {
       <section className="stack sm">
         <h3>Exportar todos los comentarios ({entries.length})</h3>
         <div className="row wrap">
-          <button className="btn sm" disabled={!entries.length} onClick={() => exportFeedback('csv', entries)} data-testid="export-csv">
+          <AsyncButton className="btn sm" disabled={!entries.length} onClick={() => exportFeedback('csv', entries)} busyLabel="Preparando…" testId="export-csv">
             <Download size={15} /> CSV (Excel)
-          </button>
-          <button className="btn sm" disabled={!entries.length} onClick={() => exportFeedback('json', entries)} data-testid="export-json">
+          </AsyncButton>
+          <AsyncButton className="btn sm" disabled={!entries.length} onClick={() => exportFeedback('json', entries)} busyLabel="Preparando…" testId="export-json">
             <Download size={15} /> JSON
+          </AsyncButton>
+          <button
+            className="btn sm"
+            disabled={!entries.length}
+            data-testid="copy-csv"
+            onClick={() => {
+              navigator.clipboard?.writeText(feedbackToCsv(entries, scenarioTitle).replace(/^\uFEFF/, '')).then(
+                () => toast('CSV copiado. Pégalo en Excel o en un email.'),
+                () => toast('No se ha podido copiar. Usa la descarga CSV.', 'alert'),
+              );
+            }}
+          >
+            <Copy size={15} /> Copiar CSV
           </button>
         </div>
       </section>

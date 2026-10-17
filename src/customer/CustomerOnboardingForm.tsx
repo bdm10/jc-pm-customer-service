@@ -48,6 +48,9 @@ export function CustomerOnboardingForm({ token }: { token: string }) {
             Hola, {c.prospectName}. Completa tus datos para que podamos activar tu cuenta y servir tu primer pedido.
           </p>
         </div>
+        <Callout tone="warn" title="Prototipo: no introduzcas datos reales">
+          Este formulario es una vista previa con datos sintéticos. Usa «Rellenar con datos de ejemplo». Nada se envía ni se guarda fuera de este navegador.
+        </Callout>
         <Callout tone="info" title="Solo te pedimos lo que tú conoces">
           Las condiciones comerciales las acuerdas con tu comercial; no tienes que rellenarlas aquí.
         </Callout>

@@ -47,7 +47,29 @@ export function useFeedback() {
   return { entries, add, remove, clear };
 }
 
-export function download(filename: string, content: string, type: string) {
+interface DownloadsApi {
+  save(req: { filename: string; data: string }): Promise<{ status: string }>;
+}
+type ClaudeHost = { use?: (name: 'downloads') => Promise<DownloadsApi | null> };
+
+/**
+ * Descarga un archivo generado en el navegador. En la vista previa online (claude.ai) las descargas
+ * directas están bloqueadas y se usa la capacidad «downloads», que pide confirmación al usuario.
+ */
+export async function download(filename: string, content: string, type: string): Promise<void> {
+  const host = (window as unknown as { claude?: ClaudeHost }).claude;
+  if (host?.use) {
+    const dl = await host.use('downloads');
+    if (!dl) throw new Error('La descarga no está disponible en esta vista. Usa «Copiar CSV».');
+    try {
+      await dl.save({ filename, data: content });
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'declined') throw new Error('Descarga cancelada.');
+      throw new Error('No se ha podido descargar el archivo. Usa «Copiar CSV».');
+    }
+    return;
+  }
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

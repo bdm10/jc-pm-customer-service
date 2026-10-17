@@ -86,6 +86,9 @@ export function ReportProblem({ token }: { token: string }) {
             Envío {sh.id}. Cuéntanos qué ha pasado; tardarás un minuto.
           </p>
         </div>
+        <Callout tone="warn" title="Prototipo: no introduzcas datos reales">
+          Vista previa con datos sintéticos. Las fotos no se suben: solo se guarda el nombre del archivo en este navegador.
+        </Callout>
 
         <div className="card card-body stack">
           <h2>1 · ¿Qué ha pasado?</h2>

@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 5174;
+// Con DEMO_FILE se prueba el archivo autocontenido: sin servidor y sin red.
+const standalone = !!process.env.DEMO_FILE;
+const noServer = standalone || !!process.env.DEMO_PROTECTED;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -14,12 +17,15 @@ export default defineConfig({
     locale: 'es-ES',
     timezoneId: 'Europe/Madrid',
     acceptDownloads: true,
+    offline: standalone,
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
-  webServer: {
-    command: `npx vite --port ${PORT} --strictPort`,
-    port: PORT,
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: noServer
+    ? undefined
+    : {
+        command: `npx vite --port ${PORT} --strictPort`,
+        port: PORT,
+        reuseExistingServer: true,
+        timeout: 60_000,
+      },
 });

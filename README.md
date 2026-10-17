@@ -36,8 +36,20 @@ npm run preview      # sirve dist/ en http://localhost:4173/
 npm run build:single
 ```
 
-Genera `dist-single/prototipo-atencion-cliente.html`. Se abre con doble clic en el navegador (`file://`),
-funciona sin conexión y guarda el estado y los comentarios en ese navegador.
+Genera `dist-single/JC-PM-Customer-Service-Demo.html`. Se abre con doble clic en el navegador (`file://`),
+funciona sin conexión y guarda el estado y los comentarios en ese navegador. `npm run test:standalone` ejecuta
+todas las pruebas contra ese archivo, sin servidor y con la red desactivada.
+
+### Vista previa online protegida con contraseña
+
+```bash
+DEMO_PASSWORD='una-clave-larga-y-unica' npm run build:protected
+```
+
+Genera `dist-protected/artifact.html`: la app va **cifrada** (AES-GCM 256, clave derivada con PBKDF2-SHA-256 y
+600.000 iteraciones) y la página solo muestra un formulario de contraseña. Se publica como artifact privado de
+claude.ai. Instrucciones completas en [docs/DEMO_REUNION.md](docs/DEMO_REUNION.md). La contraseña nunca se
+guarda en el repositorio.
 
 ### Opciones útiles
 
@@ -75,6 +87,7 @@ Guion detallado en [docs/GUIA_PRESENTADOR.md](docs/GUIA_PRESENTADOR.md).
 
 ## Documentación
 
+- [docs/DEMO_REUNION.md](docs/DEMO_REUNION.md) — archivo para la reunión, vista previa protegida y contraseña.
 - [docs/GUIA_PRESENTADOR.md](docs/GUIA_PRESENTADOR.md) — guion de 10–15 minutos.
 - [docs/SUPUESTOS_Y_PREGUNTAS.md](docs/SUPUESTOS_Y_PREGUNTAS.md) — supuestos y preguntas para la reunión con PM.
 - [docs/INTEGRACION.md](docs/INTEGRACION.md) — qué está simulado, interfaces y qué requeriría integración real (incluye el contrato propuesto con la capa de captura).

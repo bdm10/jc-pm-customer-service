@@ -9,7 +9,8 @@ Queremos que nos digáis qué falta, qué sobra y quién decide en cada paso.»
 
 ## Antes de empezar (5 minutos)
 
-1. `npm run dev` y abrir http://localhost:5173/ — o abrir `dist-single/prototipo-atencion-cliente.html`.
+1. Abrir `JC-PM-Customer-Service-Demo.html` con doble clic (Chrome o Edge), o la vista previa online con su
+   contraseña, o `npm run dev` y http://localhost:5173/.
 2. Pantalla de al menos 1440 px de ancho, zoom del navegador al 100 %.
 3. Pulsar **Reset demo** para empezar desde cero (los comentarios de ensayos anteriores se conservan; si
    quieres empezar sin ellos, bórralos uno a uno en la pestaña *Comentarios*).

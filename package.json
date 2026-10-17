@@ -7,13 +7,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p . && vite build",
-    "build:single": "tsc --noEmit -p . && vite build --base ./ --outDir dist-single && node scripts/inline-build.mjs dist-single",
+    "build:single": "tsc --noEmit -p . && vite build --base ./ --outDir dist-single && node scripts/inline-build.mjs dist-single JC-PM-Customer-Service-Demo.html",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p .",
     "test": "vitest run",
     "test:e2e": "playwright test tests/e2e/scenarios.spec.ts tests/e2e/meeting.spec.ts",
     "screenshots": "playwright test tests/e2e/screenshots.spec.ts",
-    "verify": "npm run typecheck && npm run test && npm run build && npm run test:e2e"
+    "verify": "npm run typecheck && npm run test && npm run build && npm run test:e2e",
+    "build:protected": "npm run build:single && node scripts/protect-build.mjs",
+    "test:standalone": "npm run build:single && DEMO_FILE=dist-single/JC-PM-Customer-Service-Demo.html playwright test tests/e2e/scenarios.spec.ts tests/e2e/meeting.spec.ts tests/e2e/standalone.spec.ts"
   },
   "dependencies": {
     "lucide-react": "1.59.0",

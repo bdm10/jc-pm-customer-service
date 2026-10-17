@@ -20,7 +20,8 @@ Entorno usado: Node 22.22, Chromium de Playwright 1.56 (1440 × 900 y 390 × 844
 | `npm run build` | Compila (≈ 150 KB comprimido) |
 | `npm run test:e2e` (Playwright, Chromium) | **16 / 16** recorridos superados |
 | `npm run screenshots` | 18 capturas generadas en `docs/screenshots/` |
-| `npm run build:single` + apertura con `file://` | Carga sin errores de consola; una acción persiste tras recargar |
+| `npm run test:standalone` (archivo `JC-PM-Customer-Service-Demo.html` con `file://`, perfil limpio, **sin servidor y con la red desactivada**) | **17 / 17** superadas: los seis escenarios, reinicios, exportación de comentarios, cero peticiones de red y estado conservado al reabrir |
+| Vista previa protegida (`tests/e2e/protected.spec.ts`, servida con una política de contenido estricta dentro de un iframe aislado) | Superada: contraseña incorrecta rechazada, ningún texto de la app en claro, la contraseña correcta abre la app y el escenario 3 funciona |
 
 ## Qué cubre cada prueba
 
@@ -102,6 +103,11 @@ reglas. Se corrigieron y se cubren con pruebas:
 - El banner «Prototipo — datos y acciones simulados» aparece en todas las pantallas, incluidas las vistas del cliente.
 
 ## Límites conocidos
+
+- «Doble clic en un ordenador limpio» se ha reproducido con un perfil de Chromium nuevo, sin red y sin servidor.
+  No se ha probado en un Windows o Mac físico, ni con políticas corporativas que bloqueen archivos locales.
+- La vista previa protegida se ha probado en local con una política de contenido parecida a la del visor; el
+  visor real de claude.ai no se ha podido abrir desde este entorno.
 
 - Solo se ha probado en Chromium. Firefox y Safari recientes deberían funcionar, pero no se han probado.
 - Los comentarios y el estado viven en el navegador: otro equipo u otro navegador no los ve. Exportar al final.

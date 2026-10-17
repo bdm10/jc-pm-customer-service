@@ -11,6 +11,9 @@ import './styles.css';
 // ?rapido=1 reduce la latencia simulada (útil para pruebas automáticas).
 if (new URLSearchParams(window.location.search).has('rapido')) setLatency(40);
 
+// Señal para el cargador de la vista previa protegida: la app ha arrancado.
+(window as unknown as { __CS_BOOTED?: boolean }).__CS_BOOTED = true;
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <StoreProvider>

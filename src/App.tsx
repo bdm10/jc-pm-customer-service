@@ -5,7 +5,7 @@ import { buildQueue } from './domain/queue';
 import type { DemoState, ScenarioId } from './domain/types';
 import { PresenterDrawer } from './presenter/PresenterDrawer';
 import { usePresenter } from './presenter/PresenterContext';
-import { navigate, useRoute } from './state/router';
+import { linkTo, navigate, useRoute } from './state/router';
 import { useStore } from './state/store';
 import { ConfirmDialog, useToast } from './components/ui';
 import { Bandeja } from './screens/Bandeja';
@@ -122,7 +122,7 @@ function Topbar({ section }: { section: string }) {
     <header className="topbar">
       <div className="topbar-inner">
         <div className="topbar-row">
-          <a className="brand" href="#/bandeja">
+          <a className="brand" {...linkTo('/bandeja')}>
             <span className="brand-mark">CS</span>
             <span>
               <span className="brand-title">Atención al Cliente</span>
@@ -140,12 +140,12 @@ function Topbar({ section }: { section: string }) {
         </div>
         <nav className="nav" aria-label="Secciones">
           {NAV.map((n) => (
-            <a key={n.path} href={`#/${n.path}`} className={active === n.path ? 'active' : ''}>
+            <a key={n.path} {...linkTo(`/${n.path}`)} className={active === n.path ? 'active' : ''}>
               {n.label}
               {counts[n.path] > 0 && <span className="count">{counts[n.path]}</span>}
             </a>
           ))}
-          <a href="#/supuestos" className={active === 'supuestos' ? 'active' : ''} style={{ marginLeft: 'auto' }}>
+          <a {...linkTo('/supuestos')} className={active === 'supuestos' ? 'active' : ''} style={{ marginLeft: 'auto' }}>
             Supuestos y preguntas
           </a>
         </nav>

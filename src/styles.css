@@ -1,6 +1,7 @@
 /* Sistema visual del prototipo: tranquilo, legible, con semáforos discretos y siempre con texto. */
 
 :root {
+  color-scheme: light;
   --bg: #f5f3ef;
   --surface: #ffffff;
   --surface-2: #faf8f5;
@@ -169,7 +170,7 @@ textarea {
 /* ---------- Banner de prototipo (siempre visible) ---------- */
 .proto-banner {
   position: sticky;
-  top: 0;
+  top: env(safe-area-inset-top, 0px);
   z-index: 60;
   height: var(--banner-h);
   display: flex;
@@ -198,7 +199,7 @@ textarea {
 /* ---------- Barra superior ---------- */
 .topbar {
   position: sticky;
-  top: var(--banner-h);
+  top: calc(var(--banner-h) + env(safe-area-inset-top, 0px));
   z-index: 50;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
