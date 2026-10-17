@@ -101,7 +101,8 @@ export function buildQueue(s: DemoState, now = new Date()): QueueItem[] {
     const pending = outstandingDecisions(c);
     const waitingCustomer = c.status === 'waiting_customer';
     const mine = pending.find((p) => p.owner.startsWith('Atención'));
-    const needsYou = !waitingCustomer && !!mine;
+    const readyToCreate = pending.length === 0 && c.status === 'in_review';
+    const needsYou = (!waitingCustomer && !!mine) || readyToCreate;
     items.push({
       id: c.id,
       kind: 'onboarding',
@@ -117,7 +118,7 @@ export function buildQueue(s: DemoState, now = new Date()): QueueItem[] {
         ? [{ label: `${pending.length} ${pending.length === 1 ? 'dato o decisión pendiente' : 'datos o decisiones pendientes'}`, tone: 'neutral', who: (needsYou ? mine! : pending[0]).owner, status: '' }]
         : [],
       needs: needsYou ? 'you' : 'others',
-      nextAction: needsYou ? mine!.short : waitingCustomer ? 'Esperando el formulario del cliente' : `Esperando a ${pending[0]?.owner ?? '—'}`,
+      nextAction: readyToCreate ? 'Crear la cuenta en el ERP' : needsYou ? mine!.short : waitingCustomer ? 'Esperando el formulario del cliente' : `Esperando a ${pending[0]?.owner ?? '—'}`,
       priority: priorityFor(c.createdAt, undefined, c.linkedOrderId ? [{ score: 25, reason: 'Hay un pedido esperando esta alta' }] : [], now),
       scenarioId: c.scenarioId,
       search: [c.id, c.prospectName].join(' ').toLowerCase(),

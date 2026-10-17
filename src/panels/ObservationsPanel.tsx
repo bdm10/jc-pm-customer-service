@@ -11,7 +11,7 @@ import { AsyncButton, Callout, Card, DemoBox, ErpTag, Pill, ProposedTag, useToas
 const KINDS: ObservationKind[] = ['standard_repeat', 'one_off_delivery', 'commercial', 'other'];
 
 export function ObservationsPanel({ o }: { o: Order }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const ev = useEvidence();
   const toast = useToast();
   const r = o.observation;
@@ -21,6 +21,7 @@ export function ObservationsPanel({ o }: { o: Order }) {
   const readiness = ops.observationReadiness(o);
   const conflicts = ops.activeConflicts(o);
   const resolved = b.status === 'resolved';
+  const consulting = r.segments.some((x) => x.classification === 'commercial' || x.classification === 'other');
 
   return (
     <Card id="panel-observations" title="Observaciones del pedido" icon={<MessageSquareText size={18} />} actions={<ErpTag />}>
@@ -162,13 +163,19 @@ export function ObservationsPanel({ o }: { o: Order }) {
           </Callout>
         ) : b.status === 'waiting' ? (
           <div className="stack">
-            <Callout tone="neutral" title="Esperando respuesta del cliente">
-              El pedido sigue retenido hasta confirmar la dirección o la fecha.
+            <Callout tone="neutral" title={b.waitingOn === 'sales' ? 'Esperando respuesta del comercial' : 'Esperando respuesta del cliente'}>
+              {consulting ? 'Hay una parte de la nota que necesita aclaración. El pedido sigue retenido.' : 'El pedido sigue retenido hasta confirmar la dirección o la fecha.'}
             </Callout>
-            <DemoBox title="simula la respuesta del cliente">
-              <button className="btn demo" onClick={() => apply((s) => ops.simulateCustomerConfirmsObservation(s, o.id))}>
-                El cliente confirma el cambio puntual
-              </button>
+            <DemoBox title={b.waitingOn === 'sales' ? 'simula la respuesta del comercial' : 'simula la respuesta del cliente'}>
+              {consulting ? (
+                <button className="btn demo" onClick={() => apply((s) => ops.simulateConsultAnswer(s, o.id))} data-testid="consult-answer">
+                  Llega la aclaración: volver a clasificar
+                </button>
+              ) : (
+                <button className="btn demo" onClick={() => apply((s) => ops.simulateCustomerConfirmsObservation(s, o.id))}>
+                  El cliente confirma el cambio puntual
+                </button>
+              )}
             </DemoBox>
           </div>
         ) : (
@@ -189,12 +196,17 @@ export function ObservationsPanel({ o }: { o: Order }) {
                 busyLabel="Actualizando el pedido (simulado)…"
                 testId="resolve-observations"
                 onClick={async () => {
+                  const act = begin();
                   await services.approvals.requestApproval({ entityId: o.id, topic: 'observations', approver: 'cs', note: 'Clasificación de observaciones' });
-                  apply((s) => ops.resolveObservations(s, o.id));
-                  toast(readiness.waitingCustomer ? 'Pendiente de respuesta del cliente.' : 'Observaciones resueltas. Ya puedes liberar el pedido.');
+                  act((s) => ops.resolveObservations(s, o.id));
+                  toast(readiness.consultWith || readiness.waitingCustomer ? 'Consulta registrada. El pedido sigue retenido.' : 'Observaciones resueltas. Ya puedes liberar el pedido.');
                 }}
               >
-                {readiness.waitingCustomer ? 'Guardar y consultar al cliente' : 'Resolver bloqueo de observaciones'}
+                {readiness.consultWith === 'sales'
+                  ? 'Guardar y consultar al comercial'
+                  : readiness.consultWith || readiness.waitingCustomer
+                    ? 'Guardar y consultar al cliente'
+                    : 'Resolver bloqueo de observaciones'}
               </AsyncButton>
             </div>
           </div>

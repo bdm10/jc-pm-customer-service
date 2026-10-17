@@ -61,11 +61,10 @@ test.describe('Seis demostraciones guiadas', () => {
     const resolve = page.getByTestId('resolve-observations');
     await expect(resolve).toBeDisabled();
 
-    // «Otra» no permite liberar: no se descartan instrucciones en silencio.
+    // «Otra» no libera: solo permite guardar y consultar. No se descartan instrucciones en silencio.
     await page.getByTestId('accept-suggestion-seg-1').click();
     await page.getByTestId('segment-seg-2').getByText('Otra — requiere consulta').click();
-    await expect(resolve).toBeDisabled();
-    await expect(page.getByText('requiere consulta antes de liberar')).toBeVisible();
+    await expect(resolve).toHaveText('Guardar y consultar al cliente');
 
     await page.getByTestId('segment-seg-2').getByText('Cambio puntual de entrega', { exact: true }).click();
     await expect(page.getByLabel('Dirección de entrega para este pedido')).toHaveValue(/Passeig de la Ribera 45/);

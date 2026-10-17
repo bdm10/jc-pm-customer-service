@@ -10,7 +10,7 @@ import { NotFound } from '../App';
 import { CustomerShell } from './CustomerShell';
 
 export function CustomerOnboardingForm({ token }: { token: string }) {
-  const { state, apply, services } = useStore();
+  const { state, begin, services } = useStore();
   const toast = useToast();
   const c = Object.values(state.onboarding).find((x) => x.invite?.token === token);
   const [data, setData] = useState<Partial<OnboardingCustomerData>>(() => c?.customerData ?? {});
@@ -96,8 +96,9 @@ export function CustomerOnboardingForm({ token }: { token: string }) {
             busyLabel="Enviando (simulado)…"
             testId="submit-onboarding"
             onClick={async () => {
+              const act = begin();
               const dups = await services.directory.findDuplicates(data);
-              apply((s) => ops.submitCustomerForm(s, c.id, data, dups));
+              act((s) => ops.submitCustomerForm(s, c.id, data, dups));
               toast('Formulario enviado (vista previa). Vuelve al espacio de trabajo para revisarlo.');
             }}
           >

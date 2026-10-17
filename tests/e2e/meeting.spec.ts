@@ -110,6 +110,34 @@ test.describe('Funciones para la reunión', () => {
     await expect(page.getByTestId('propose-shipment')).toHaveCount(0);
   });
 
+  test('reiniciar mientras el ERP simulado responde descarta el resultado', async ({ page }) => {
+    await page.goto('/#/bandeja');
+    await page.evaluate(() => localStorage.clear());
+    await page.goto('/#/pedido/REQ-1042'); // latencia normal (~1 s)
+    await page.reload();
+    for (const k of ['deliveryAddress', 'deliveryDate']) await page.getByTestId(`confirm-${k}`).click();
+    await page.getByTestId('confirm-line-L3').click();
+    await page.getByTestId('primary-action').click();
+    await page.getByTestId('reset-demo').click();
+    await page.getByRole('button', { name: 'Reiniciar demo' }).click();
+    await expect(page.getByText('La acción se ha descartado')).toBeVisible({ timeout: 5000 });
+    await go(page, '/pedido/REQ-1042');
+    await expect(nextAction(page)).toContainText('Revisar 3 datos dudosos');
+  });
+
+  test('reiniciar desde la confirmación de una incidencia no deja la pantalla en blanco', async ({ page }) => {
+    await freshStart(page, '/seguimiento');
+    await page.getByTestId('tracking-ENV-26-004490').click();
+    await page.getByTestId('report-problem').click();
+    await page.getByTestId('claim-item-P-2001').getByRole('button', { name: 'Más' }).click();
+    await page.getByTestId('submit-claim').click();
+    await expect(page.getByTestId('claim-created')).toBeVisible();
+    await page.getByTestId('reset-demo').click();
+    await page.getByRole('button', { name: 'Reiniciar demo' }).click();
+    await expect(page.getByTestId('proto-banner')).toBeVisible();
+    await expect(page.locator('#root')).not.toBeEmpty();
+  });
+
   test('Baleares sin tarifa: cálculo incompleto en contribución', async ({ page }) => {
     await freshStart(page, '/pedido/REQ-1045');
     await expect(page.getByText('Tarifa de transporte para Islas Baleares')).toBeVisible();

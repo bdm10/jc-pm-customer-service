@@ -81,7 +81,6 @@ export function outstandingDecisions(c: OnboardingCase): OutstandingItem[] {
   if (s.internal.missing.length) out.push({ text: `Asignar dimensiones contables: ${s.internal.missing.join(', ')}`, short: 'Asignar dimensiones contables', owner: 'Atención al Cliente / Administración' });
   if (c.finance.status === 'not_requested') out.push({ text: 'Solicitar a Finanzas la decisión de crédito y forma de pago', short: 'Solicitar decisión a Finanzas', owner: 'Atención al Cliente' });
   else if (c.finance.status === 'requested') out.push({ text: 'Decisión de crédito y forma de pago', short: 'Decisión de crédito', owner: 'Finanzas' });
-  else if (c.finance.status === 'rejected') out.push({ text: 'Finanzas ha rechazado el crédito: acordar pago anticipado con el comercial', short: 'Acordar pago anticipado', owner: 'Comercial' });
   return out;
 }
 
@@ -89,7 +88,8 @@ export function canCreateAccount(c: OnboardingCase): boolean {
   if (c.status === 'created' || c.status === 'merged') return false;
   const s = sectionCompleteness(c);
   const dupOk = !c.duplicateCheck || c.duplicateCheck.candidates.length === 0 || c.duplicateCheck.decision === 'different';
-  const finOk = c.finance.status === 'approved' || c.finance.status === 'approved_changes';
+  // «Sin crédito» también es una decisión: la cuenta se crea con pago anticipado.
+  const finOk = c.finance.status === 'approved' || c.finance.status === 'approved_changes' || c.finance.status === 'rejected';
   const taxOk = isValidSpanishTaxIdFormat(c.customerData.taxId ?? '');
   return !!c.customerSubmittedAt && s.customer.missing.length === 0 && s.sales.missing.length === 0 && s.internal.missing.length === 0 && dupOk && finOk && taxOk;
 }

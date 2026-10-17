@@ -1,7 +1,7 @@
 // Propuesta de envío de almacén (paso 3 del proceso: en PM lo crea Atención al Cliente; en JC, Logística).
 
 import { productLabel } from './orders';
-import type { DemoState, Order, ShipmentException } from './types';
+import type { DemoState, Order, Shipment, ShipmentException } from './types';
 
 export interface ShipmentProposal {
   orderIds: string[];
@@ -119,6 +119,22 @@ export function proposeShipment(state: DemoState, orderId: string): ShipmentProp
     instructions,
     exceptions,
   };
+}
+
+/**
+ * Entrega confirmada que se puede mostrar al cliente: solo la que ha confirmado el transportista y
+ * mientras siga enviando actualizaciones. Si no hay noticias, no se muestra ninguna hora.
+ */
+export function confirmedDelivery(sh: Shipment): { date: string; window?: string } | undefined {
+  if (sh.status === 'delivered' && sh.deliveredAt) return { date: sh.deliveredAt, window: sh.confirmedDelivery?.window };
+  if (sh.carrierUpdateMissing) return undefined;
+  if (!sh.confirmedDelivery?.source.startsWith('Confirmado')) return undefined;
+  return { date: sh.confirmedDelivery.date, window: sh.confirmedDelivery.window };
+}
+
+/** Fecha planificada internamente (no confirmada por el transportista). */
+export function plannedDelivery(sh: Shipment): string | undefined {
+  return sh.confirmedDelivery && !sh.confirmedDelivery.source.startsWith('Confirmado') && !sh.confirmedDelivery.source.startsWith('Entrega') ? sh.confirmedDelivery.date : undefined;
 }
 
 export function shipmentBlockingExceptions(p: ShipmentProposal, decisions: Record<string, string>): ShipmentException[] {

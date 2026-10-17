@@ -20,7 +20,9 @@ export function customerName(state: DemoState, o: Order): string {
 
 /** Datos extraídos que el usuario todavía debe confirmar (confianza media o baja). */
 export function pendingReviews(o: Order): number {
-  const fields = o.fields.filter((f) => f.confidence !== 'alta' && !f.confirmed).length;
+  // El cliente de un alta en curso no se «confirma» aquí: lo resuelve el alta.
+  const onboardingPending = !!o.onboardingId && !o.customerId;
+  const fields = o.fields.filter((f) => f.confidence !== 'alta' && !f.confirmed && !(onboardingPending && f.key === 'customer')).length;
   const lines = o.lines.filter((l) => l.uncertainty && !l.uncertainty.confirmed).length;
   return fields + lines;
 }
@@ -49,12 +51,13 @@ export function csActionFor(o: Order, b: Blocker): NextAction | null {
         ? you('Solicitar aprobación de la excepción comercial', 'Las condiciones pedidas están fuera del acuerdo. Debe aprobarlas quien tenga la autorización.', 'panel-deal')
         : null;
     case 'credit':
+      if (b.status === 'waiting') return null;
       if (!o.credit?.requestedAt) return you('Solicitar revisión a Finanzas', 'Atención al Cliente no puede liberar un bloqueo de crédito. Prepara la solicitud con el contexto.', 'panel-credit');
       if (o.credit.decision === 'rejected' && !o.credit.informedAt)
         return you('Informar del rechazo al comercial', 'Finanzas no libera el pedido. Atención al Cliente no puede anular esa decisión.', 'panel-credit');
       return null;
     case 'observations':
-      return b.status === 'waiting' ? null : you('Clasificar las observaciones', b.reason, 'panel-observations');
+      return b.status === 'waiting' ? null : you('Revisar las observaciones', b.reason, 'panel-observations');
     case 'stock': {
       const r = o.stockReview;
       if (b.status === 'waiting') return null;
@@ -67,12 +70,13 @@ export function csActionFor(o: Order, b: Blocker): NextAction | null {
       if (!m) return null;
       const pendingReq = (['A', 'B', 'C'] as const).some((k) => m.approvals[k] === 'pending');
       if ((m.shortfall && !m.shortfall.decision) || pendingReq) return you('Revisar el material promocional', b.reason, 'panel-merchandising');
-      const allOk = (['A', 'B', 'C'] as const).every((k) => ['auto', 'approved', 'not_needed'].includes(m.approvals[k]));
-      if (allOk) return you('Resolver el bloqueo de merchandising', 'Las aprobaciones están completas.', 'panel-merchandising');
+      if (b.status === 'waiting') return null;
+      const decided = (['A', 'B', 'C'] as const).every((k) => m.approvals[k] !== 'requested');
+      if (decided) return you('Resolver el bloqueo de merchandising', 'Las decisiones de aprobación están registradas.', 'panel-merchandising');
       return null;
     }
     case 'new_customer':
-      return you('Completar el alta del cliente', b.reason, 'panel-new_customer');
+      return b.status === 'waiting' ? null : you('Completar el alta del cliente', b.reason, 'panel-new_customer');
   }
 }
 
@@ -101,6 +105,9 @@ export function orderNextAction(state: DemoState, o: Order): NextAction {
       };
     }
     const nc = open.find((b) => b.type === 'new_customer');
+    if (nc?.status === 'waiting') {
+      return { label: waitingOnText(blockerOwner(nc)), detail: nc.reason, actor: blockerOwner(nc), needs: 'others', target: 'panel-new_customer', kind: 'scroll' };
+    }
     if (nc) {
       return {
         label: 'Completar el alta del cliente',

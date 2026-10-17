@@ -1,5 +1,6 @@
 import { ExternalLink } from 'lucide-react';
 import { fmtAge, fmtDate } from '../domain/format';
+import { confirmedDelivery, plannedDelivery } from '../domain/shipment';
 import { navigate } from '../state/router';
 import { useStore } from '../state/store';
 import { ChannelLabel } from '../components/common';
@@ -88,7 +89,19 @@ export function Seguimiento() {
                   )}
                 </td>
                 <td className="small">{fmtDate(s.requestedDate)}</td>
-                <td className="small">{s.confirmedDelivery ? `${fmtDate(s.confirmedDelivery.date)}${s.confirmedDelivery.window ? ` · ${s.confirmedDelivery.window}` : ''}` : <span className="muted">Sin confirmar</span>}</td>
+                <td className="small">
+                  {(() => {
+                    const c = confirmedDelivery(s);
+                    const p = plannedDelivery(s);
+                    if (c) return `${fmtDate(c.date)}${c.window ? ` · ${c.window}` : ''}`;
+                    return (
+                      <>
+                        <span className="muted">Sin confirmar</span>
+                        {p && <div className="xsmall muted">Planificada: {fmtDate(p)}</div>}
+                      </>
+                    );
+                  })()}
+                </td>
                 <td className="small">{fmtAge(s.lastUpdateAt)}</td>
                 <td>
                   <div className="row" style={{ gap: 6, justifyContent: 'flex-end' }}>

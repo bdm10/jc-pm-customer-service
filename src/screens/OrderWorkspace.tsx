@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, History, Inbox, ListChecks, Package, Pencil, ShieldCheck, UserPlus } from 'lucide-react';
 import { BLOCKER_LABEL, ROLE_LABEL } from '../domain/labels';
-import { fmtAge, fmtDate, fmtEUR, relativeDay } from '../domain/format';
+import { fmtAge, fmtDate, fmtEUR, isoDateInput, relativeDay } from '../domain/format';
 import * as ops from '../domain/ops';
 import { blockerOwner, blockerStatusText, customerName, customerOf, openBlockers, orderNextAction, pendingReviews, productLabel } from '../domain/orders';
 import type { Blocker, Order } from '../domain/types';
@@ -70,26 +70,28 @@ function Workspace({ o }: { o: Order }) {
 }
 
 function Header({ o }: { o: Order }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const toast = useToast();
   const na = orderNextAction(state, o);
   const customer = customerOf(state, o);
 
   const approve = async () => {
+    const act = begin();
     const corrections = state.events.filter((e) => e.entityId === o.id && e.text.startsWith('Corrige')).length;
-    apply((s) => ops.approveDraft(s, o.id));
+    act((s) => ops.approveDraft(s, o.id));
     const r = await services.erp.createSalesOrder(state.orders[o.id]);
-    apply((s) => ops.applyErpCreate(s, o.id, r));
+    act((s) => ops.applyErpCreate(s, o.id, r));
     if (o.capture) {
       await services.capture.reportOutcome(o.capture.draftId, 'approved', corrections);
-      apply((s) => ops.noteCaptureFeedback(s, o.id, corrections));
+      act((s) => ops.noteCaptureFeedback(s, o.id, corrections));
     }
     toast(r.released ? `ERP (simulado): pedido ${r.erpNumber} creado y liberado automáticamente.` : `ERP (simulado): pedido ${r.erpNumber} creado, pero queda retenido.`);
   };
 
   const release = async () => {
+    const act = begin();
     const r = await services.erp.releaseOrder(o);
-    apply((s) => ops.applyRelease(s, o.id, r.ok, r.detail));
+    act((s) => ops.applyRelease(s, o.id, r.ok, r.detail));
     toast(r.ok ? `ERP (simulado): pedido ${o.erpNumber} liberado. Pasa a preparación de envío.` : r.detail, r.ok ? 'info' : 'alert');
   };
 
@@ -252,7 +254,19 @@ function OrderData({ o }: { o: Order }) {
               <div>
                 {editing === f.key ? (
                   <div className="row">
-                    <input className="input" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label={`Corregir ${f.label}`} autoFocus />
+                    {f.key === 'deliveryDate' ? (
+                      <input type="date" className="input" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label={`Corregir ${f.label}`} autoFocus />
+                    ) : f.key === 'deliveryAddress' && customer ? (
+                      <select className="select" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label={`Corregir ${f.label}`} autoFocus>
+                        {customer.addresses.map((a) => (
+                          <option key={a.id} value={`addr:${a.id}`}>
+                            {a.label} — {a.street}, {a.city}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input className="input" value={draft} onChange={(e) => setDraft(e.target.value)} aria-label={`Corregir ${f.label}`} autoFocus />
+                    )}
                     <button
                       className="btn sm primary"
                       onClick={() => {
@@ -286,7 +300,12 @@ function OrderData({ o }: { o: Order }) {
                         Ver en el mensaje
                       </button>
                     )}
-                    {isDraft && review && editing !== f.key && (
+                    {isDraft && review && editing !== f.key && f.key === 'customer' && o.onboardingId && !o.customerId && (
+                      <button className="btn sm" onClick={() => navigate(`/alta/${o.onboardingId}`)}>
+                        Se resuelve con el alta {o.onboardingId}
+                      </button>
+                    )}
+                    {isDraft && review && editing !== f.key && !(f.key === 'customer' && o.onboardingId && !o.customerId) && (
                       <>
                         <button className="btn sm primary" onClick={() => apply((s) => ops.confirmField(s, o.id, f.key))} data-testid={`confirm-${f.key}`}>
                           <Check size={14} /> Confirmar
@@ -295,7 +314,9 @@ function OrderData({ o }: { o: Order }) {
                           className="btn sm"
                           onClick={() => {
                             setEditing(f.key);
-                            setDraft(f.value);
+                            setDraft(
+                              f.key === 'deliveryDate' ? isoDateInput(o.requestedDeliveryDate) : f.key === 'deliveryAddress' && customer ? `addr:${o.deliveryAddressId ?? customer.addresses[0].id}` : f.value,
+                            );
                           }}
                         >
                           <Pencil size={14} /> Corregir

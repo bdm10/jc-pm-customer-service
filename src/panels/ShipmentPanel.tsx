@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Copy, ExternalLink, Truck } from 'lucide-react';
 import { fmtAge, fmtDate, fmtDateTime } from '../domain/format';
 import * as ops from '../domain/ops';
-import type { ShipmentProposal } from '../domain/shipment';
+import { confirmedDelivery, plannedDelivery, type ShipmentProposal } from '../domain/shipment';
 import type { Order, Shipment } from '../domain/types';
 import { navigate } from '../state/router';
 import { useStore } from '../state/store';
@@ -27,7 +27,7 @@ function JcNote() {
 }
 
 function Prepare({ o }: { o: Order }) {
-  const { apply, services } = useStore();
+  const { begin, services } = useStore();
   const toast = useToast();
   const [proposal, setProposal] = useState<ShipmentProposal | null>(null);
   const [decisions, setDecisions] = useState<Record<string, string>>({});
@@ -138,10 +138,11 @@ function Prepare({ o }: { o: Order }) {
           busyLabel="Creando envío (simulado)…"
           testId="confirm-shipment"
           onClick={async () => {
+            const act = begin();
             await services.warehouse.confirmShipment(proposal);
             const link = await services.links.createLink('tracking', o.id);
             let id = '';
-            apply((s) => {
+            act((s) => {
               id = ops.createShipment(s, proposal, decisions, link.token, link.url);
             });
             toast(`Envío de almacén ${id} preparado (simulado). Pasa a picking.`);
@@ -167,6 +168,8 @@ export function ShipmentStatus({ sh }: { sh: Shipment }) {
     { k: 'delivered', l: 'Entregado', at: sh.deliveredAt },
   ];
   const idx = steps.findIndex((s) => s.k === sh.status);
+  const confirmed = confirmedDelivery(sh);
+  const planned = plannedDelivery(sh);
   return (
     <div className="stack lg" data-testid="shipment-status">
       <div className="row wrap" style={{ gap: 10 }}>
@@ -189,8 +192,10 @@ export function ShipmentStatus({ sh }: { sh: Shipment }) {
         <dd>{fmtDate(sh.requestedDate)}</dd>
         <dt>Entrega confirmada</dt>
         <dd>
-          {sh.confirmedDelivery ? `${fmtDate(sh.confirmedDelivery.date)}${sh.confirmedDelivery.window ? ` · ${sh.confirmedDelivery.window}` : ''}` : 'Sin confirmar'}
-          {sh.confirmedDelivery && <div className="xsmall muted">{sh.confirmedDelivery.source}</div>}
+          {confirmed ? `${fmtDate(confirmed.date)}${confirmed.window ? ` · ${confirmed.window}` : ''}` : 'Sin confirmar'}
+          {confirmed && sh.confirmedDelivery && <div className="xsmall muted">{sh.confirmedDelivery.source}</div>}
+          {!confirmed && planned && <div className="xsmall muted">Planificada por Logística para el {fmtDate(planned)}; pendiente de confirmar por el transportista.</div>}
+          {!confirmed && sh.carrierUpdateMissing && <div className="xsmall muted">Sin noticias del transportista: no se muestra ninguna hora.</div>}
         </dd>
         <dt>Última actualización</dt>
         <dd>

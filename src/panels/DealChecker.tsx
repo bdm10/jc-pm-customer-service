@@ -22,7 +22,7 @@ const money = (v: number | null) => (v == null ? '—' : fmtEUR(v === 0 ? 0 : v)
 const pctOf = (v: number | null) => (v == null ? '—' : fmtPct(v));
 
 export function DealChecker({ o }: { o: Order }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const toast = useToast();
   const customer = customerOf(state, o);
   const exceptions = findCommercialExceptions(o, customer, state.products);
@@ -215,8 +215,9 @@ export function DealChecker({ o }: { o: Order }) {
                     busyLabel="Enviando a aprobación (simulado)…"
                     testId="request-commercial"
                     onClick={async () => {
+                      const act = begin();
                       await services.approvals.requestApproval({ entityId: o.id, topic: 'commercial', approver, note });
-                      apply((s) => ops.requestCommercialApproval(s, o.id, approver, note));
+                      act((s) => ops.requestCommercialApproval(s, o.id, approver, note));
                       toast(`Excepción enviada a ${ROLE_LABEL[approver]} (simulado).`);
                     }}
                   >

@@ -5,7 +5,7 @@ import { canCreateAccount, findDuplicateCandidates, isValidSpanishTaxIdFormat, S
 import * as ops from './ops';
 import { creditExposure, orderNextAction } from './orders';
 import { buildQueue } from './queue';
-import { proposeShipment } from './shipment';
+import { confirmedDelivery, proposeShipment } from './shipment';
 
 const now = new Date('2026-10-19T09:30:00');
 
@@ -61,11 +61,27 @@ describe('Bloqueo por observaciones', () => {
     expect(() => ops.resolveObservations(s, id)).toThrow();
   });
 
-  it('«Otra» mantiene el bloqueo: no se descartan instrucciones en silencio', () => {
+  it('«Otra» mantiene el bloqueo: obliga a consultar y nunca libera', () => {
     const s = createSeed(now);
     ops.classifySegment(s, id, 'seg-1', 'standard_repeat');
     ops.classifySegment(s, id, 'seg-2', 'other');
-    expect(ops.observationReadiness(s.orders[id]).ready).toBe(false);
+    expect(ops.observationReadiness(s.orders[id]).consultWith).toBe('customer');
+    ops.resolveObservations(s, id);
+    expect(s.orders[id].blockers[0].status).toBe('waiting');
+    expect(s.orders[id].blockers[0].waitingOn).toBe('customer');
+    // La respuesta no clasifica por la persona: vuelve a pedir la clasificación.
+    ops.simulateConsultAnswer(s, id);
+    expect(s.orders[id].blockers[0].status).toBe('open');
+    expect(s.orders[id].observation?.segments[1].classification).toBeUndefined();
+  });
+
+  it('«Condición comercial» se consulta al comercial y no libera', () => {
+    const s = createSeed(now);
+    ops.classifySegment(s, id, 'seg-1', 'standard_repeat');
+    ops.classifySegment(s, id, 'seg-2', 'commercial');
+    ops.resolveObservations(s, id);
+    expect(s.orders[id].blockers[0].status).toBe('waiting');
+    expect(s.orders[id].blockers[0].waitingOn).toBe('sales');
   });
 
   it('cambio puntual + conflictos revisados → bloqueo resuelto con campos estructurados y nota original intacta', () => {
@@ -205,5 +221,110 @@ describe('Bandeja y reinicio', () => {
     expect(s.stock['P-2003']).toBe(16);
     const r = resetScenario(s, 's4', createSeed(now));
     expect(r.stock['P-2003']).toBe(20);
+  });
+});
+
+describe('Regresiones de la revisión', () => {
+  it('un resultado del ERP solo se aplica a un borrador aprobado (p. ej. tras un reinicio)', () => {
+    const s = createSeed(now);
+    ops.applyErpCreate(s, 'REQ-1042', { erpNumber: 'PV-26-999999', released: true, blocks: [], checks: [] });
+    expect(s.orders['REQ-1042'].stage).toBe('draft');
+    expect(s.orders['REQ-1042'].erpNumber).toBeUndefined();
+  });
+
+  it('no se puede crear una cuenta sin datos ni decisiones', () => {
+    const s = createSeed(now);
+    expect(() => ops.createAccount(s, 'ALTA-0042', 'C-20931')).toThrow();
+    expect(s.orders['REQ-1047'].blockers[0].status).toBe('open');
+  });
+
+  it('Finanzas «sin crédito» permite crear la cuenta con pago anticipado (límite 0)', () => {
+    const s = createSeed(now);
+    const id = 'ALTA-0042';
+    ops.generateInvite(s, id, 'T', 'u', now.toISOString());
+    ops.submitCustomerForm(s, id, SAMPLE_CUSTOMER_DATA, findDuplicateCandidates(Object.values(s.customers), SAMPLE_CUSTOMER_DATA));
+    ops.decideDuplicate(s, id, 'different', 'CIF distinto');
+    for (const [k, v] of [['customerPostingGroup', 'NAC-HORECA'], ['vatPostingGroup', 'NACIONAL'], ['channelDimension', 'HORECA'], ['zoneDimension', 'BCN-CIUTAT']] as const)
+      ops.updateInternal(s, id, k, v);
+    ops.requestOnboardingFinance(s, id);
+    ops.onboardingFinanceDecision(s, id, 'rejected');
+    expect(canCreateAccount(s.onboarding[id])).toBe(true);
+    ops.createAccount(s, id, 'C-20931');
+    expect(s.customers['C-20931'].credit.limit).toBe(0);
+  });
+
+  it('«Esperar a tener los 2» deja el merchandising esperando material hasta que llega', () => {
+    const s = createSeed(now);
+    const id = 'PV-26-018662';
+    ops.decideShortfall(s, id, 'wait');
+    ops.requestMerchApprovals(s, id);
+    ops.merchDecision(s, id, 'B', true);
+    ops.merchDecision(s, id, 'C', true);
+    ops.resolveMerch(s, id);
+    const b = s.orders[id].blockers[0];
+    expect(b.status).toBe('waiting');
+    expect(b.waitingOn).toBe('logistics');
+    ops.simulateMerchReceipt(s, id);
+    ops.resolveMerch(s, id);
+    expect(s.orders[id].blockers[0].status).toBe('resolved');
+    expect(s.stock['M-02']).toBeGreaterThanOrEqual(2);
+  });
+
+  it('un rechazo de Material C con decisiones completas permite resolver', () => {
+    const s = createSeed(now);
+    const id = 'PV-26-018662';
+    ops.decideShortfall(s, id, 'split');
+    ops.requestMerchApprovals(s, id);
+    ops.merchDecision(s, id, 'B', true);
+    ops.merchDecision(s, id, 'C', false);
+    expect(orderNextAction(s, s.orders[id]).label).toBe('Resolver el bloqueo de merchandising');
+  });
+
+  it('«Corregir» la fecha y la dirección cambia el pedido, no solo el texto', () => {
+    const s = createSeed(now);
+    ops.editField(s, 'REQ-1042', 'deliveryDate', '2026-10-30');
+    ops.editField(s, 'REQ-1042', 'deliveryAddress', 'addr:A2');
+    const o = s.orders['REQ-1042'];
+    expect(new Date(o.requestedDeliveryDate).getDate()).toBe(30);
+    expect(o.deliveryAddressId).toBe('A2');
+    expect(o.fields.find((f) => f.key === 'deliveryAddress')?.value).toContain('Doctor Aiguader');
+  });
+
+  it('crédito rechazado → el comercial consigue pago anticipado → vuelve a Finanzas', () => {
+    const s = createSeed(now);
+    const id = 'PV-26-018655';
+    ops.requestCreditReview(s, id, 'x');
+    ops.financeDecision(s, id, 'rejected', 'no');
+    ops.informCreditRejection(s, id);
+    expect(s.orders[id].blockers.find((b) => b.type === 'credit')?.waitingOn).toBe('sales');
+    ops.resubmitCreditAfterPrepayment(s, id);
+    expect(s.orders[id].credit?.decision).toBeUndefined();
+    expect(s.orders[id].blockers.find((b) => b.type === 'credit')?.waitingOn).toBe('finance');
+    ops.financeDecision(s, id, 'approved', 'Pago recibido');
+    expect(s.orders[id].blockers.find((b) => b.type === 'credit')?.status).toBe('resolved');
+  });
+
+  it('si el transportista deja de informar no se muestra una entrega confirmada', () => {
+    const s = createSeed(now);
+    s.orders['REQ-1042'].stage = 'released';
+    const p = proposeShipment(s, 'REQ-1042');
+    const shId = ops.createShipment(s, p, { 'ex-window': 'standard_inform' }, 'TOK', 'u');
+    ops.simulateDispatch(s, shId);
+    ops.simulateCarrierUpdate(s, shId);
+    expect(confirmedDelivery(s.shipments[shId])?.window).toBe('16:00–19:00');
+    ops.simulateCarrierSilence(s, shId);
+    expect(confirmedDelivery(s.shipments[shId])).toBeUndefined();
+  });
+
+  it('«Es el mismo cliente» deja el pedido esperando a Finanzas, no a Atención al Cliente', () => {
+    const s = createSeed(now);
+    const id = 'ALTA-0042';
+    ops.submitCustomerForm(s, id, SAMPLE_CUSTOMER_DATA, findDuplicateCandidates(Object.values(s.customers), SAMPLE_CUSTOMER_DATA));
+    ops.decideDuplicate(s, id, 'same', 'Mismo local');
+    ops.confirmField(s, 'REQ-1047', 'deliveryAddress');
+    ops.confirmField(s, 'REQ-1047', 'deliveryDate');
+    const na = orderNextAction(s, s.orders['REQ-1047']);
+    expect(na.needs).toBe('others');
+    expect(na.label).toBe('Esperando a Finanzas');
   });
 });

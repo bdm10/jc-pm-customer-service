@@ -13,7 +13,7 @@ function proposalText(o: Order, opt: StockOption, product: string, contact: stri
 }
 
 export function StockPanel({ o }: { o: Order }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const toast = useToast();
   const r = o.stockReview;
   const b = o.blockers.find((x) => x.type === 'stock');
@@ -79,7 +79,10 @@ export function StockPanel({ o }: { o: Order }) {
             const locked = !!r.acceptance;
             return (
               <label key={opt.id} className={`choice ${isSel ? 'selected' : ''} ${locked ? 'disabled' : ''}`} data-testid={`stock-option-${opt.id}`}>
-                <input type="radio" name="stock-opt" disabled={locked} checked={isSel} onChange={() => apply((s) => ops.selectStockOption(s, o.id, opt.id))} />
+                <input type="radio" name="stock-opt" disabled={locked} checked={isSel} onChange={() => {
+                    setText('');
+                    apply((s) => ops.selectStockOption(s, o.id, opt.id));
+                  }} />
                 <div className="stack sm grow">
                   <div className="row wrap" style={{ gap: 8 }}>
                     <Tag tone="info">{STOCK_OPTION_LABEL[opt.kind]}</Tag>
@@ -109,9 +112,10 @@ export function StockPanel({ o }: { o: Order }) {
                 busyLabel="Preparando borrador (simulado)…"
                 testId="prepare-proposal"
                 onClick={async () => {
+                  const act = begin();
                   const body = text || proposalText(o, selected, productLabel(state, originalSku), contact);
                   await services.messaging.prepareDraft({ channel: 'email', to: customer?.contactName ?? '', body });
-                  apply((s) => ops.prepareStockProposal(s, o.id, body));
+                  act((s) => ops.prepareStockProposal(s, o.id, body));
                   toast('Propuesta preparada. En el prototipo no se envía ningún mensaje.');
                 }}
               >
@@ -159,7 +163,13 @@ export function StockPanel({ o }: { o: Order }) {
                 >
                   Registrar aceptación explícita
                 </button>
-                <button className="btn demo" onClick={() => apply((s) => ops.selectStockOption(s, o.id, r.selectedOptionId!))}>
+                <button
+                  className="btn demo"
+                  onClick={() => {
+                    setText('');
+                    apply((s) => ops.selectStockOption(s, o.id, r.selectedOptionId!));
+                  }}
+                >
                   El cliente prefiere otra opción
                 </button>
               </div>
@@ -184,9 +194,10 @@ export function StockPanel({ o }: { o: Order }) {
                 testId="second-check"
                 title={!r.appliedAt ? 'Primero aplica el cambio aceptado' : undefined}
                 onClick={async () => {
+                  const act = begin();
                   const cur = state.orders[o.id];
                   const res = await services.inventory.checkAvailability(cur.lines.filter((l) => state.products[l.sku]?.kind === 'wine').map((l) => ({ sku: l.sku, quantity: l.quantity })));
-                  apply((s) => ops.applySecondCheck(s, o.id, res));
+                  act((s) => ops.applySecondCheck(s, o.id, res));
                   toast(res.every((x) => x.ok) ? 'Segunda comprobación correcta: hay stock.' : 'La segunda comprobación no encuentra stock suficiente.', res.every((x) => x.ok) ? 'info' : 'alert');
                 }}
               >

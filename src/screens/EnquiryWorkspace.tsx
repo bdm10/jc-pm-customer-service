@@ -1,6 +1,7 @@
 import { ArrowLeft, MessageCircle, Truck } from 'lucide-react';
 import { fmtAge, fmtDate, fmtDateTime } from '../domain/format';
 import * as ops from '../domain/ops';
+import { confirmedDelivery } from '../domain/shipment';
 import { navigate } from '../state/router';
 import { useStore } from '../state/store';
 import { SourcePanel, EvidenceProvider } from '../components/SourcePanel';
@@ -15,8 +16,9 @@ export function EnquiryWorkspace({ id }: { id: string }) {
   if (!e) return <NotFound />;
   const sh = state.shipments[e.shipmentId];
   const customer = state.customers[e.customerId];
-  const confirmedReply = sh?.confirmedDelivery?.source.startsWith('Confirmado')
-    ? `Hola, gracias por escribirnos. El transportista nos confirma la entrega de tu pedido ${e.orderId} el ${fmtDate(sh.confirmedDelivery.date)}${sh.confirmedDelivery.window ? ` entre las ${sh.confirmedDelivery.window.replace('–', ' y las ')}` : ''}. Puedes seguirlo aquí: [enlace de seguimiento].`
+  const conf = sh && sh.status === 'dispatched' ? confirmedDelivery(sh) : undefined;
+  const confirmedReply = conf
+    ? `Hola, gracias por escribirnos. El transportista nos confirma la entrega de tu pedido ${e.orderId} el ${fmtDate(conf.date)}${conf.window ? ` entre las ${conf.window.replace('–', ' y las ')}` : ''}. Puedes seguirlo aquí: [enlace de seguimiento].`
     : undefined;
 
   return (

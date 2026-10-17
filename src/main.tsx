@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/ui';
 import { PresenterProvider } from './presenter/PresenterContext';
 import { setLatency } from './services/mock';
@@ -15,7 +16,9 @@ createRoot(document.getElementById('root')!).render(
     <StoreProvider>
       <ToastProvider>
         <PresenterProvider>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </PresenterProvider>
       </ToastProvider>
     </StoreProvider>

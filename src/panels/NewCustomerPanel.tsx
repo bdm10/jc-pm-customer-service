@@ -4,6 +4,7 @@ import type { Order } from '../domain/types';
 import { navigate } from '../state/router';
 import { useStore } from '../state/store';
 import { Callout, Card, Pill, Progress, ProposedTag } from '../components/ui';
+import { ONBOARDING_STATUS } from '../screens/Altas';
 
 export function NewCustomerPanel({ o }: { o: Order }) {
   const { state } = useStore();
@@ -21,6 +22,10 @@ export function NewCustomerPanel({ o }: { o: Order }) {
           <Callout tone="ok" title="Cuenta creada">
             {b.resolution} Ya puedes revisar y aprobar el borrador.
           </Callout>
+        ) : b.status === 'waiting' ? (
+          <Callout tone="neutral" title="Reactivación de una cuenta existente">
+            {b.reason}
+          </Callout>
         ) : (
           <Callout tone="warn" title="El pedido espera al alta del cliente">
             {b.reason}
@@ -31,10 +36,10 @@ export function NewCustomerPanel({ o }: { o: Order }) {
             <strong>
               Alta {c.id} · {c.prospectName}
             </strong>
-            <Pill tone={c.status === 'created' ? 'ok' : 'info'}>{c.status === 'created' ? 'Cuenta creada' : c.status === 'waiting_customer' ? 'Esperando al cliente' : c.status === 'in_review' ? 'En revisión' : 'Sin enlace enviado'}</Pill>
+            <Pill tone={ONBOARDING_STATUS[c.status].tone}>{ONBOARDING_STATUS[c.status].label}</Pill>
           </div>
           <Progress value={done} total={total} />
-          {pending.length > 0 && (
+          {pending.length > 0 && c.status !== 'merged' && c.status !== 'created' && (
             <ul className="plain small">
               {pending.slice(0, 4).map((p) => (
                 <li key={p.text}>

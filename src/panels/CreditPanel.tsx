@@ -9,7 +9,7 @@ import { RoleBadge } from '../components/common';
 import { AsyncButton, Callout, Card, DemoBox, ErpTag, LockedButton, Pill, SimTag, useToast } from '../components/ui';
 
 export function CreditPanel({ o }: { o: Order }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const toast = useToast();
   const b = o.blockers.find((x) => x.type === 'credit');
   const c = customerOf(state, o);
@@ -131,8 +131,9 @@ export function CreditPanel({ o }: { o: Order }) {
                 busyLabel="Enviando a Finanzas (simulado)…"
                 testId="request-finance"
                 onClick={async () => {
+                  const act = begin();
                   await services.approvals.requestApproval({ entityId: o.id, topic: 'credit', approver: 'finance', note });
-                  apply((s) => ops.requestCreditReview(s, o.id, note));
+                  act((s) => ops.requestCreditReview(s, o.id, note));
                   toast('Solicitud enviada a Finanzas (simulado). No se ha enviado ningún email real.');
                 }}
               >
@@ -180,7 +181,14 @@ export function CreditPanel({ o }: { o: Order }) {
                 </button>
               </div>
             ) : (
-              <Pill tone="neutral">Esperando al comercial: propuesta de pago anticipado</Pill>
+              <div className="stack sm">
+                <Pill tone="neutral">Esperando al comercial: propuesta de pago anticipado</Pill>
+                <DemoBox title="simula la gestión del comercial">
+                  <button className="btn demo" onClick={() => apply((s) => ops.resubmitCreditAfterPrepayment(s, o.id))} data-testid="sales-prepayment">
+                    El cliente acepta pagar por anticipado: volver a Finanzas
+                  </button>
+                </DemoBox>
+              </div>
             )}
           </div>
         )}

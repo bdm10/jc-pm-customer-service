@@ -54,7 +54,8 @@ cada escenario en la pestaña *Comentarios* del panel de presentación.
 
 - **Propósito:** hoy cualquier texto en «Observaciones» retiene el pedido. Separar lo repetido de lo nuevo.
 - **Clics:** parte 1 → *Aceptar sugerencia* (instrucción habitual, ya en la ficha, 14 de 15 pedidos) → parte 2
-  → elegir *Otra* para enseñar que **no se puede liberar** → cambiar a *Cambio puntual de entrega* → mostrar los
+  → elegir *Otra* para enseñar que **no se puede liberar** (solo «Guardar y consultar al cliente») → cambiar a
+  *Cambio puntual de entrega* → mostrar los
   campos estructurados → decidir los dos conflictos (dirección y franja) → **Resolver** → **Liberar pedido**.
 - **Mensaje clave:** la sugerencia no se basa solo en palabras clave y nunca libera sola; la nota original se
   conserva y la ficha del cliente no cambia.

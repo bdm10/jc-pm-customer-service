@@ -24,7 +24,7 @@ const statusPill = (v: string) => {
 };
 
 export function MerchPanel({ o }: { o: Order }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const toast = useToast();
   const m = o.merch;
   const b = o.blockers.find((x) => x.type === 'merchandising');
@@ -140,11 +140,12 @@ export function MerchPanel({ o }: { o: Order }) {
                   busyLabel="Enviando solicitudes (simulado)…"
                   testId="request-merch"
                   onClick={async () => {
+                    const act = begin();
                     for (const k of cats) {
                       const approver = ops.MERCH_RULES[k].approver;
                       if (m.approvals[k] === 'pending' && approver) await services.approvals.requestApproval({ entityId: o.id, topic: 'merchandising', approver, note: `Material categoría ${k}` });
                     }
-                    apply((s) => ops.requestMerchApprovals(s, o.id));
+                    act((s) => ops.requestMerchApprovals(s, o.id));
                     toast('Solicitudes de aprobación enviadas (simulado).');
                   }}
                 >
@@ -179,7 +180,7 @@ export function MerchPanel({ o }: { o: Order }) {
             <div>
               <button
                 className="btn primary"
-                disabled={!canResolve}
+                disabled={!canResolve || b.status === 'waiting' && b.waitingOn === 'logistics'}
                 data-testid="resolve-merch"
                 onClick={() => {
                   apply((s) => ops.resolveMerch(s, o.id));
@@ -190,6 +191,18 @@ export function MerchPanel({ o }: { o: Order }) {
               </button>
               {!canResolve && <div className="xsmall muted" style={{ marginTop: 6 }}>Falta decidir la disponibilidad y tener todas las aprobaciones.</div>}
             </div>
+          </div>
+        )}
+        {b.status === 'waiting' && b.waitingOn === 'logistics' && (
+          <div className="stack sm">
+            <Callout tone="neutral" title="Esperando material">
+              Las aprobaciones están registradas, pero se decidió esperar a tener todo el material. El pedido sigue retenido.
+            </Callout>
+            <DemoBox title="simula la llegada del material">
+              <button className="btn demo" onClick={() => apply((s) => ops.simulateMerchReceipt(s, o.id))}>
+                Llega el material pendiente
+              </button>
+            </DemoBox>
           </div>
         )}
         {resolved && <Callout tone="ok" title="Merchandising resuelto">{b.resolution}</Callout>}

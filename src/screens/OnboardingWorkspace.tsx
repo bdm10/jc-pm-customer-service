@@ -29,7 +29,7 @@ export function OnboardingWorkspace({ id }: { id: string }) {
 }
 
 function Workspace({ c }: { c: OnboardingCase }) {
-  const { state, apply, services } = useStore();
+  const { state, apply, begin, services } = useStore();
   const toast = useToast();
   const comp = sectionCompleteness(c);
   const pending = outstandingDecisions(c);
@@ -43,7 +43,7 @@ function Workspace({ c }: { c: OnboardingCase }) {
     { l: 'Enlace enviado', ok: !!c.invite },
     { l: 'Datos del cliente', ok: !!c.customerSubmittedAt },
     { l: 'Revisión interna', ok: !!c.duplicateCheck?.decision && comp.internal.missing.length === 0 },
-    { l: 'Decisión de Finanzas', ok: ['approved', 'approved_changes'].includes(c.finance.status) },
+    { l: 'Decisión de Finanzas', ok: ['approved', 'approved_changes', 'rejected'].includes(c.finance.status) },
     { l: 'Cuenta creada', ok: c.status === 'created' },
   ];
   const currentStep = steps.findIndex((s) => !s.ok);
@@ -124,8 +124,9 @@ function Workspace({ c }: { c: OnboardingCase }) {
                     busyLabel="Generando enlace (simulado)…"
                     testId="generate-invite"
                     onClick={async () => {
+                      const act = begin();
                       const l = await services.links.createLink('onboarding', c.id);
-                      apply((s) => ops.generateInvite(s, c.id, l.token, l.url, l.expiresAt));
+                      act((s) => ops.generateInvite(s, c.id, l.token, l.url, l.expiresAt));
                       toast('Enlace de alta generado (simulado). No se ha enviado nada.');
                     }}
                   >
@@ -180,7 +181,7 @@ function Workspace({ c }: { c: OnboardingCase }) {
               ))}
             </OwnerSection>
 
-            <OwnerSection title="Asigna el equipo interno" icon={<Building2 size={16} />} owner="Administración / Finanzas" done={comp.internal.done + (['approved', 'approved_changes'].includes(c.finance.status) ? 1 : 0)} total={comp.internal.total + 1}>
+            <OwnerSection title="Asigna el equipo interno" icon={<Building2 size={16} />} owner="Administración / Finanzas" done={comp.internal.done + (['approved', 'approved_changes', 'rejected'].includes(c.finance.status) ? 1 : 0)} total={comp.internal.total + 1}>
               <p className="xsmall muted">Dimensiones contables (valores de ejemplo) y decisión de Finanzas. El cliente y el comercial no los ven.</p>
               {INTERNAL_FIELDS.map((f) => (
                 <div key={f.key} className="field">
@@ -220,7 +221,11 @@ function Workspace({ c }: { c: OnboardingCase }) {
           ) : (
             <div className="card card-body row wrap" style={{ justifyContent: 'space-between' }}>
               <div className="small">
-                {ready ? 'Todo completo y decidido. Puedes crear la cuenta.' : 'La cuenta se crea cuando los datos están completos, el posible duplicado está decidido y Finanzas ha aprobado.'}
+                {ready
+                  ? c.finance.status === 'rejected'
+                    ? 'Todo completo. La cuenta se creará sin crédito: los pedidos requerirán pago anticipado.'
+                    : 'Todo completo y decidido. Puedes crear la cuenta.'
+                  : 'La cuenta se crea cuando los datos están completos, el posible duplicado está decidido y Finanzas ha decidido.'}
               </div>
               <AsyncButton
                 className="btn primary lg"
@@ -228,8 +233,9 @@ function Workspace({ c }: { c: OnboardingCase }) {
                 busyLabel="Creando cuenta en el ERP (simulado)…"
                 testId="create-account"
                 onClick={async () => {
+                  const act = begin();
                   const r = await services.erp.createCustomer(c.id);
-                  apply((s) => ops.createAccount(s, c.id, r.customerId));
+                  act((s) => ops.createAccount(s, c.id, r.customerId));
                   toast(`Cuenta ${r.customerId} creada (simulado). El pedido ${c.linkedOrderId} queda desbloqueado.`);
                 }}
               >
@@ -343,7 +349,7 @@ function DuplicateCard({ c }: { c: OnboardingCase }) {
 }
 
 function FinanceBox({ c }: { c: OnboardingCase }) {
-  const { apply, services } = useStore();
+  const { apply, begin, services } = useStore();
   const f = c.finance;
   return (
     <div className="role-box stack sm" data-testid="onboarding-finance">
@@ -362,8 +368,9 @@ function FinanceBox({ c }: { c: OnboardingCase }) {
             busyLabel="Enviando (simulado)…"
             testId="request-onboarding-finance"
             onClick={async () => {
+              const act = begin();
               await services.approvals.requestApproval({ entityId: c.id, topic: 'onboarding_credit', approver: 'finance', note: 'Alta de cliente' });
-              apply((s) => ops.requestOnboardingFinance(s, c.id));
+              act((s) => ops.requestOnboardingFinance(s, c.id));
             }}
           >
             Solicitar decisión a Finanzas
@@ -381,14 +388,14 @@ function FinanceBox({ c }: { c: OnboardingCase }) {
               Aprueba con límite reducido
             </button>
             <button className="btn demo sm" onClick={() => apply((s) => ops.onboardingFinanceDecision(s, c.id, 'rejected'))}>
-              Sin crédito (pago anticipado)
+              Sin crédito: solo pago anticipado
             </button>
           </div>
         </DemoBox>
       )}
       {['approved', 'approved_changes', 'rejected'].includes(f.status) && (
         <div className="small">
-          <Pill tone={f.status === 'rejected' ? 'alert' : 'ok'}>{f.status === 'rejected' ? 'Sin crédito' : 'Aprobado'}</Pill>
+          <Pill tone={f.status === 'rejected' ? 'warn' : 'ok'}>{f.status === 'rejected' ? 'Sin crédito: pago anticipado' : 'Aprobado'}</Pill>
           <div style={{ marginTop: 6 }}>
             Límite: <strong>{f.creditLimit}</strong> · {f.paymentTerms}
           </div>

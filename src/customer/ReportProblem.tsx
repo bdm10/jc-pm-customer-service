@@ -29,6 +29,7 @@ export function ReportProblem({ token }: { token: string }) {
 
   if (created) {
     const c = state.claims[created];
+    if (!c) return <NotFound />; // la demo se ha reiniciado después de enviar el aviso
     return (
       <CustomerShell back={back} backLabel="Volver al seguimiento">
         <div className="card card-body stack lg" data-testid="claim-created">

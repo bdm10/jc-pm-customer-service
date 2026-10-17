@@ -2,7 +2,9 @@
 // (el store hace la copia). Cada operación deja rastro en el historial.
 // Regla clave: ninguna operación de un rol puede resolver un bloqueo que pertenece a otro rol.
 
+import { fmtLongDay, fromDateInput } from './format';
 import { findCommercialExceptions } from './margin';
+import { canCreateAccount } from './onboarding';
 import { CLAIM_TYPE_LABEL, OBSERVATION_KIND_LABEL, ROLE_LABEL, STOCK_OPTION_LABEL } from './labels';
 import { productLabel } from './orders';
 import type { ShipmentProposal } from './shipment';
@@ -66,13 +68,31 @@ export function confirmField(s: DemoState, orderId: string, key: string) {
   log(s, orderId, 'cs', 'decision', `Confirma «${f.label}»: ${f.value}.`, me(s));
 }
 
+/**
+ * Corrige un dato extraído y lo traslada al pedido: la fecha (valor AAAA-MM-DD) cambia la fecha de entrega,
+ * la dirección (valor «addr:<id>» o texto libre) cambia la dirección y la referencia cambia la referencia.
+ */
 export function editField(s: DemoState, orderId: string, key: string, value: string) {
-  const f = order(s, orderId).fields.find((x) => x.key === key);
-  if (!f) return;
+  const o = order(s, orderId);
+  const f = o.fields.find((x) => x.key === key);
+  if (!f || !value.trim()) return;
   const before = f.value;
-  f.value = value;
+  if (key === 'deliveryDate' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    o.requestedDeliveryDate = fromDateInput(value);
+    f.value = fmtLongDay(o.requestedDeliveryDate);
+  } else if (key === 'deliveryAddress' && value.startsWith('addr:')) {
+    const c = o.customerId ? s.customers[o.customerId] : undefined;
+    const a = c?.addresses.find((x) => x.id === value.slice(5));
+    if (!a) return;
+    o.deliveryAddressId = a.id;
+    f.value = `${a.label} — ${a.street}, ${a.postalCode} ${a.city}`;
+  } else {
+    if (key === 'deliveryAddress') o.deliveryAddressText = value;
+    if (key === 'customerReference') o.customerReference = value;
+    f.value = value;
+  }
   f.confirmed = true;
-  log(s, orderId, 'cs', 'decision', `Corrige «${f.label}»: «${before}» → «${value}».`, me(s));
+  log(s, orderId, 'cs', 'decision', `Corrige «${f.label}»: «${before}» → «${f.value}».`, me(s));
 }
 
 export function confirmLine(s: DemoState, orderId: string, lineId: string) {
@@ -109,6 +129,7 @@ export interface ErpCreateResult {
 
 export function applyErpCreate(s: DemoState, orderId: string, r: ErpCreateResult) {
   const o = order(s, orderId);
+  if (o.stage !== 'approved') return; // solo un borrador aprobado puede confirmarse en el ERP
   o.erpNumber = r.erpNumber;
   o.stage = 'erp_confirmed';
   log(s, orderId, 'erp', 'system', `Pedido ${r.erpNumber} creado en el ERP (simulado).`);
@@ -183,14 +204,12 @@ export function activeConflicts(o: Order) {
   return r.conflicts.filter((c) => r.segments.find((sg) => sg.id === c.segmentId)?.classification === 'one_off_delivery');
 }
 
-export function observationReadiness(o: Order): { ready: boolean; waitingCustomer: boolean; missing: string[] } {
+export function observationReadiness(o: Order): { ready: boolean; waitingCustomer: boolean; consultWith?: Role; missing: string[] } {
   const r = o.observation;
   if (!r) return { ready: false, waitingCustomer: false, missing: ['Sin observaciones'] };
   const missing: string[] = [];
   for (const sg of r.segments) {
     if (!sg.classification) missing.push('Clasificar todas las partes de la nota');
-    if (sg.classification === 'other') missing.push('Hay una parte clasificada como «Otra»: requiere consulta antes de liberar');
-    if (sg.classification === 'commercial') missing.push('Hay una condición comercial: debe revisarse en el comprobador de condiciones');
     if (sg.classification === 'one_off_delivery') {
       if (!sg.structured?.address?.trim()) missing.push('Indicar la dirección del cambio puntual');
       if (!sg.structured?.date) missing.push('Indicar la fecha del cambio puntual');
@@ -199,7 +218,13 @@ export function observationReadiness(o: Order): { ready: boolean; waitingCustome
   const conflicts = activeConflicts(o);
   if (conflicts.some((c) => !c.chosen)) missing.push('Revisar todos los conflictos');
   const waitingCustomer = conflicts.some((c) => c.chosen === 'ask_customer');
-  return { ready: missing.length === 0, waitingCustomer, missing: Array.from(new Set(missing)) };
+  // «Otra» y «Condición comercial» nunca liberan: obligan a consultar antes de seguir.
+  const consultWith: Role | undefined = r.segments.some((x) => x.classification === 'commercial')
+    ? 'sales'
+    : r.segments.some((x) => x.classification === 'other')
+      ? 'customer'
+      : undefined;
+  return { ready: missing.length === 0, waitingCustomer, consultWith, missing: Array.from(new Set(missing)) };
 }
 
 export function resolveObservations(s: DemoState, orderId: string) {
@@ -209,6 +234,21 @@ export function resolveObservations(s: DemoState, orderId: string) {
   if (!b || !r) return;
   const st = observationReadiness(o);
   if (!st.ready) throw new Error('Faltan decisiones en las observaciones');
+  if (st.consultWith) {
+    b.status = 'waiting';
+    b.waitingOn = st.consultWith;
+    log(
+      s,
+      orderId,
+      'cs',
+      'action',
+      st.consultWith === 'sales'
+        ? 'Consulta al comercial la condición comercial de la nota. El pedido sigue retenido.'
+        : 'Consulta al cliente qué significa la parte de la nota sin clasificar. El pedido sigue retenido.',
+      me(s),
+    );
+    return;
+  }
   if (st.waitingCustomer) {
     b.status = 'waiting';
     b.waitingOn = 'customer';
@@ -233,6 +273,19 @@ export function resolveObservations(s: DemoState, orderId: string) {
   resolve(b, 'cs', `Clasificado: ${parts}. La nota original se conserva; el cambio puntual se guarda en campos estructurados.`);
   log(s, orderId, 'cs', 'decision', 'Resuelve el bloqueo de observaciones.', me(s));
   log(s, orderId, 'erp', 'system', 'Campos de entrega estructurados actualizados en el pedido (simulado). La ficha del cliente no cambia.');
+}
+
+/** Llega la respuesta a una consulta: la persona vuelve a clasificar la parte afectada con la nueva información. */
+export function simulateConsultAnswer(s: DemoState, orderId: string) {
+  const o = order(s, orderId);
+  const b = blocker(o, 'observations');
+  if (!b || !o.observation) return;
+  const role: Role = b.waitingOn === 'sales' ? 'sales' : 'customer';
+  const who = role === 'sales' ? 'el comercial' : 'el cliente';
+  for (const sg of o.observation.segments) if (sg.classification === 'commercial' || sg.classification === 'other') sg.classification = undefined;
+  b.status = 'open';
+  b.waitingOn = undefined;
+  log(s, orderId, role, 'demo', `Control de demo: responde ${who}. Vuelve a clasificar la parte consultada con la nueva información.`);
 }
 
 export function simulateCustomerConfirmsObservation(s: DemoState, orderId: string) {
@@ -284,6 +337,16 @@ export function informCreditRejection(s: DemoState, orderId: string) {
     b.waitingOn = 'sales';
   }
   log(s, orderId, 'cs', 'action', 'Prepara aviso al comercial con la decisión de Finanzas (no se envía en el prototipo).', me(s));
+}
+
+export function resubmitCreditAfterPrepayment(s: DemoState, orderId: string) {
+  const o = order(s, orderId);
+  const b = blocker(o, 'credit');
+  if (!b || !o.credit) return;
+  o.credit = { requestedAt: nowIso(), requestNote: 'El cliente acepta pagar este pedido por anticipado (gestión del comercial). Se pide a Finanzas que lo revise de nuevo.' };
+  b.status = 'waiting';
+  b.waitingOn = 'finance';
+  log(s, orderId, 'sales', 'demo', 'Control de demo: el comercial acuerda con el cliente el pago anticipado. Vuelve a Finanzas para decidir.', 'Comercial (simulado)');
 }
 
 // ---------------------------------------------------------------- Excepción comercial (no toca el crédito)
@@ -501,6 +564,20 @@ export function merchDecision(s: DemoState, orderId: string, cat: MerchCategory,
   }
 }
 
+export function simulateMerchReceipt(s: DemoState, orderId: string) {
+  const o = order(s, orderId);
+  const m = o.merch;
+  const b = blocker(o, 'merchandising');
+  const line = m?.shortfall ? o.lines.find((l) => l.id === m.shortfall!.lineId) : undefined;
+  if (!m?.shortfall || !line || !b) return;
+  const need = line.quantity - (s.stock[line.sku] ?? 0);
+  if (need > 0) s.stock[line.sku] = (s.stock[line.sku] ?? 0) + need;
+  m.shortfall.available = s.stock[line.sku];
+  b.status = 'open';
+  b.waitingOn = undefined;
+  log(s, orderId, 'warehouse', 'demo', `Control de demo: llega el material pendiente (${productLabel(s, line.sku)}).`);
+}
+
 export function resolveMerch(s: DemoState, orderId: string) {
   const o = order(s, orderId);
   const m = o.merch;
@@ -508,6 +585,14 @@ export function resolveMerch(s: DemoState, orderId: string) {
   if (!m || !b) return;
   const done = (['A', 'B', 'C'] as MerchCategory[]).every((k) => ['auto', 'approved', 'rejected', 'not_needed'].includes(m.approvals[k]));
   if (!done || (m.shortfall && !m.shortfall.decision)) throw new Error('Faltan decisiones de merchandising');
+  const short = m.shortfall;
+  const shortLine = short ? o.lines.find((l) => l.id === short.lineId) : undefined;
+  if (short?.decision === 'wait' && shortLine && (s.stock[shortLine.sku] ?? 0) < shortLine.quantity) {
+    b.status = 'waiting';
+    b.waitingOn = 'logistics';
+    log(s, orderId, 'cs', 'action', `Aprobaciones completas. El pedido espera a tener ${shortLine.quantity} uds de ${productLabel(s, shortLine.sku)}.`, me(s));
+    return;
+  }
   m.budget.used += o.lines.reduce((acc, l) => acc + (s.products[l.sku]?.kind === 'merch' ? (s.products[l.sku].unitCost ?? 0) * l.quantity : 0), 0);
   resolve(b, 'cs', 'Material revisado: disponibilidad decidida y aprobaciones registradas (reglas provisionales).');
   log(s, orderId, 'cs', 'decision', 'Resuelve el bloqueo de merchandising.', me(s));
@@ -787,6 +872,7 @@ function parseAddress(text: string) {
 
 export function createAccount(s: DemoState, caseId: string, customerId: string) {
   const c = s.onboarding[caseId];
+  if (!c || !canCreateAccount(c)) throw new Error('No se puede crear la cuenta: faltan datos o decisiones.');
   const d = c.customerData;
   s.customers[customerId] = {
     id: customerId,

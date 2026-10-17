@@ -15,6 +15,10 @@ export function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+export function fmtLongDay(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
 export function fmtDateShort(iso: string): string {
   return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
 }

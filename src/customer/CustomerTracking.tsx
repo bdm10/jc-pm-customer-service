@@ -1,6 +1,7 @@
 import { Check, Clock, PackageCheck, Package, Truck, TriangleAlert } from 'lucide-react';
 import { fmtAge, fmtDate, fmtDateTime } from '../domain/format';
 import { productLabel } from '../domain/orders';
+import { confirmedDelivery } from '../domain/shipment';
 import { navigate } from '../state/router';
 import { useStore } from '../state/store';
 import { Callout } from '../components/ui';
@@ -22,7 +23,7 @@ export function CustomerTracking({ token }: { token: string }) {
     { l: 'Entregado', icon: <PackageCheck size={18} />, at: sh.deliveredAt },
   ];
   const back = () => navigate(`/pedido/${sh.orderIds[0]}`);
-  const confirmed = sh.confirmedDelivery && sh.confirmedDelivery.source.startsWith('Confirmado') || sh.status === 'delivered';
+  const confirmed = confirmedDelivery(sh);
 
   return (
     <CustomerShell back={back} backLabel="Volver al espacio de trabajo">
@@ -60,8 +61,8 @@ export function CustomerTracking({ token }: { token: string }) {
             <dd data-testid="confirmed-delivery">
               {sh.status === 'delivered' && sh.deliveredAt
                 ? `Entregado el ${fmtDateTime(sh.deliveredAt)}`
-                : confirmed && sh.confirmedDelivery
-                  ? `${fmtDate(sh.confirmedDelivery.date)}${sh.confirmedDelivery.window ? `, entre las ${sh.confirmedDelivery.window.replace('–', ' y las ')}` : ''}`
+                : confirmed
+                  ? `${fmtDate(confirmed.date)}${confirmed.window ? `, entre las ${confirmed.window.replace('–', ' y las ')}` : ''}`
                   : 'Pendiente de confirmar por el transportista'}
             </dd>
             <dt>Última actualización</dt>

@@ -16,9 +16,9 @@ Entorno usado: Node 22.22, Chromium de Playwright 1.56 (1440 × 900 y 390 × 844
 | Comprobación | Resultado |
 | --- | --- |
 | `npm run typecheck` (TypeScript estricto, sin variables sin usar) | Sin errores |
-| `npm test` (Vitest) | **25 / 25** pruebas superadas |
+| `npm test` (Vitest) | **35 / 35** pruebas superadas |
 | `npm run build` | Compila (≈ 150 KB comprimido) |
-| `npm run test:e2e` (Playwright, Chromium) | **14 / 14** recorridos superados |
+| `npm run test:e2e` (Playwright, Chromium) | **16 / 16** recorridos superados |
 | `npm run screenshots` | 18 capturas generadas en `docs/screenshots/` |
 | `npm run build:single` + apertura con `file://` | Carga sin errores de consola; una acción persiste tras recargar |
 
@@ -40,7 +40,8 @@ Entorno usado: Node 22.22, Chromium de Playwright 1.56 (1440 × 900 y 390 × 844
 - **Una aprobación comercial no libera el crédito**; no se puede liberar el pedido con el crédito abierto.
 - Finanzas solo decide sobre una solicitud enviada; su aprobación resuelve el crédito; su rechazo lo mantiene.
 - Exposición de crédito: 23.480 € + 2.777,53 € → exceso de 1.257,53 €.
-- Observaciones: no se resuelven sin clasificar todas las partes; «Otra» mantiene el bloqueo; el cambio puntual
+- Observaciones: no se resuelven sin clasificar todas las partes; «Otra» y «Condición comercial» obligan a
+  consultar (al cliente o al comercial) y nunca liberan; tras la respuesta hay que volver a clasificar; el cambio puntual
   se guarda en campos estructurados, la nota original se conserva y la ficha del cliente no cambia; «consultar al
   cliente» deja el bloqueo esperando al cliente.
 - Stock: no se puede sustituir sin aceptación explícita; sin nombre de quien acepta no se registra; la reserva
@@ -62,7 +63,7 @@ Entorno usado: Node 22.22, Chromium de Playwright 1.56 (1440 × 900 y 390 × 844
 | Prueba | Qué comprueba |
 | --- | --- |
 | 1 · Pedido limpio | 3 datos dudosos → aprobar → ERP crea PV-26-018734 y libera → agrupación con PV-26-018702 → la excepción de franja bloquea la confirmación hasta decidirla → envío ENV-26-004512 → expedición → silencio del transportista → la vista del cliente dice «Pendiente de confirmar» sin hora inventada → entrega → «Reportar un problema» crea INC-0108 sin abono automático. |
-| 2 · Observaciones | «Otra» impide resolver; cambio puntual con campos estructurados; conflictos obligatorios; recargo de franja en la contribución; liberación. |
+| 2 · Observaciones | «Otra» solo permite consultar; cambio puntual con campos estructurados; conflictos obligatorios; recargo de franja en la contribución; liberación. |
 | 3 · Crédito | Botón «Liberar bloqueo de crédito» deshabilitado; solicitud a Finanzas; aprobación comercial con el crédito todavía «Esperando a Finanzas»; decisión de Finanzas; liberación. |
 | 3b · Crédito rechazado | El pedido sigue retenido. |
 | 4 · Sin stock | Vino, añada y formato exactos; propuesta guardada sin enviar; «Aplicar» no existe sin aceptación; reserva de otro pedido; «Cálculo incompleto»; segunda comprobación (16); liberación. |
@@ -73,8 +74,26 @@ Entorno usado: Node 22.22, Chromium de Playwright 1.56 (1440 × 900 y 390 × 844
 | Reset | Reinicio de un escenario y reset global; los comentarios se conservan y persisten tras recargar. |
 | Exportación | Descarga CSV y JSON con el contenido esperado. |
 | Consulta y JC | Consulta de entrega sin hora inventada; pedido JC asignado a Logística sin botón de preparar envío. |
+| Reinicio a media acción | Reiniciar mientras el ERP simulado responde descarta el resultado (el borrador sigue sin revisar). |
+| Reinicio en la vista del cliente | Reiniciar desde la confirmación de una incidencia no deja la pantalla en blanco. |
 | Baleares | Contribución «Cálculo incompleto» por falta de tarifa. |
 | Móvil | Sin desbordamiento horizontal a 390 px en bandeja, pedido y alta. |
+
+### Regresiones de la revisión independiente (`rules.test.ts` › «Regresiones de la revisión»)
+
+Una revisión de código independiente buscó caminos alternativos que dejaran la demo bloqueada o rompieran las
+reglas. Se corrigieron y se cubren con pruebas:
+
+- Las acciones con espera (ERP, Finanzas, enlaces…) se descartan si se reinicia la demo o el escenario mientras
+  tanto; el ERP solo confirma un borrador aprobado y la cuenta solo se crea si el alta está completa.
+- «Corregir» fecha o dirección cambia el pedido (fecha de entrega, dirección), no solo el texto.
+- «Esperar a tener los 2» en merchandising deja el pedido esperando material, con control de demo de llegada.
+- Un rechazo de Trade Marketing permite resolver; «Condición comercial» y «Otra» se consultan y no se quedan atascadas.
+- «Es el mismo cliente» deja el pedido esperando a Finanzas; Finanzas «sin crédito» permite crear la cuenta con
+  pago anticipado.
+- Crédito rechazado → el comercial consigue pago anticipado (control de demo) → vuelve a Finanzas.
+- Si el transportista deja de informar, ninguna pantalla muestra una franja confirmada antigua.
+- Errores inesperados muestran una pantalla de recuperación en lugar de una página en blanco.
 
 ## Revisión manual
 
