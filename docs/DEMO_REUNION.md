@@ -19,6 +19,12 @@ Notas:
   Exporta los comentarios (CSV o JSON) al terminar.
 - No hay usuarios ni permisos: cualquiera que tenga el archivo puede abrirlo. Contiene solo datos sintéticos.
 
+## Opción C · Vídeo automático
+
+`JC-PM-Customer-Service-Demo.mp4`: los seis escenarios hechos automáticamente sobre la app real, con subtítulos
+en español y capítulos (en VLC, QuickTime o Películas y TV se puede saltar de escenario en escenario). Se
+reproduce y se pausa como cualquier vídeo; no necesita conexión. Se regenera con `npm run video`.
+
 ## Opción B · Vista previa online protegida con contraseña
 
 Se publica como **artifact privado de claude.ai**: al principio solo lo puede abrir su propietario. Además, la

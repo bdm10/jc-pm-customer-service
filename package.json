@@ -15,7 +15,8 @@
     "screenshots": "playwright test tests/e2e/screenshots.spec.ts",
     "verify": "npm run typecheck && npm run test && npm run build && npm run test:e2e",
     "build:protected": "npm run build:single && node scripts/protect-build.mjs",
-    "test:standalone": "npm run build:single && DEMO_FILE=dist-single/JC-PM-Customer-Service-Demo.html playwright test tests/e2e/scenarios.spec.ts tests/e2e/meeting.spec.ts tests/e2e/standalone.spec.ts"
+    "test:standalone": "npm run build:single && DEMO_FILE=dist-single/JC-PM-Customer-Service-Demo.html playwright test tests/e2e/scenarios.spec.ts tests/e2e/meeting.spec.ts tests/e2e/standalone.spec.ts",
+    "video": "npm run build:single && node scripts/record-demo-video.mjs"
   },
   "dependencies": {
     "lucide-react": "1.59.0",

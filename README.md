@@ -40,6 +40,17 @@ Genera `dist-single/JC-PM-Customer-Service-Demo.html`. Se abre con doble clic en
 funciona sin conexión y guarda el estado y los comentarios en ese navegador. `npm run test:standalone` ejecuta
 todas las pruebas contra ese archivo, sin servidor y con la red desactivada.
 
+### Vídeo de demostración automático
+
+```bash
+npm run video
+```
+
+Graba `release/JC-PM-Customer-Service-Demo.mp4` (H.264, 1920×1080, con capítulos por escenario) recorriendo los
+seis escenarios en la app real (archivo autocontenido, sin red), con cursor animado, subtítulos en español y
+rótulos. La lista de capítulos queda en `release/JC-PM-Customer-Service-Demo-capitulos.txt`. Requiere `ffmpeg`
+con libx264. `DEMO_SPEED=0.15 npm run video` hace un ensayo rápido del guion.
+
 ### Vista previa online protegida con contraseña
 
 ```bash
